@@ -1,0 +1,10 @@
+.venv
+.flake8
+.local.env
+*.out
+.vscode
+
+# AuRA Engine
+engine/backend/actix/target/*
+engine/web/node_modules
+engine/web/package-lock.json
