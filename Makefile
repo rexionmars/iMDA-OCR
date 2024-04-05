@@ -31,8 +31,6 @@ clean:
 	rm -rf docs/_build
 	rm -rf .pytest_cache
 
-build:
-	docker compose build
 
 up:
 	docker compose up
