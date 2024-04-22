@@ -12,11 +12,6 @@ class TextRecognition:
     def __init__(self, video_source, language="en"):
         self.reader = easyocr.Reader([language])
         self.video_capture = VideoCapture(video_source)
-        self.container_roi = None
-        self.label_roi = None
-        self.main_value_roi = None
-        self.min_value_roi = None
-        self.max_value_roi = None
         self.rois = []
         self.deleted_rois = []
         self.event_queue = Queue()
@@ -104,7 +99,6 @@ class TextRecognition:
                     for roi in self.rois:
                         self.draw_roi(frame, roi)
                 self.read_text(frame)
-                self.floating_rectangle.draw_rectangle(frame, (50, 50), self.floating_rectangle.rectangle_size)
                 cv2.imshow("Text Recognition", frame)
 
                 key = cv2.waitKey(1) & 0xFF
@@ -116,6 +110,8 @@ class TextRecognition:
     def display_text_instructions(self, frame):
         text = self.stage_texts[self.stage]
         self.floating_rectangle.set_text(text)
+        self.floating_rectangle.draw_rectangle(frame, self.floating_rectangle.current_mouse_position,
+                                               self.floating_rectangle.rectangle_size)
 
     def draw_roi(self, frame, roi):
         x, y, w, h = roi
@@ -174,24 +170,31 @@ class FloatingRectangle:
         self.current_mouse_position = (0, 0)
         self.text = ""
 
-    def draw_rectangle(self, frame, position, size):
+        cv2.namedWindow(self.window_name)
+        cv2.setMouseCallback(self.window_name, self.draw)
+
+        self.win = np.zeros((500, 500, 3), dtype='uint8')
+
+    def draw(self, event, x, y, flags, param):
+        self.current_mouse_position = (x, y)
+
+        if event == cv2.EVENT_MOUSEMOVE:
+            self.win[:] = 0  # Limpa a janela a cada movimento do mouse
+            self.draw_rectangle(self.win, self.current_mouse_position, self.rectangle_size)
+
+    def draw_rectangle(self, image, position, size):
         x, y = position
         w, h = size
-        # Calcula as coordenadas do retângulo
+        # Calcula as coordenadas do retângulo para que ele esteja acima do cursor do mouse
         x1 = x - w // 2 - self.offset_x
         y1 = y - h // 2 - self.offset_y
         x2 = x1 + w
         y2 = y1 + h
-        # Limita o retângulo dentro da janela
-        x1 = max(0, min(x1, frame.shape[1] - w))
-        y1 = max(0, min(y1, frame.shape[0] - h))
-        x2 = max(w, min(x2, frame.shape[1]))
-        y2 = max(h, min(y2, frame.shape[0]))
         # Desenha o retângulo na imagem
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (25, 220, 255), 1)
+        cv2.rectangle(image, (x1, y1), (x2, y2), (25, 220, 255), 1)
         # Adiciona o texto dentro do retângulo
         font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(frame, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
+        cv2.putText(image, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
 
     def set_text(self, text):
         self.text = text
