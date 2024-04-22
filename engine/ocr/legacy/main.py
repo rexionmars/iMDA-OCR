@@ -126,10 +126,11 @@ class TextRecognition:
                 self.drawing = True
                 self.current_roi = [x, y, 0, 0]
 
-        elif event == cv2.EVENT_MOUSEMOVE and self.drawing:
-            if self.current_roi is not None:
-                self.current_roi[2] = x - self.current_roi[0]
-                self.current_roi[3] = y - self.current_roi[1]
+        elif event == cv2.EVENT_MOUSEMOVE:
+            if self.drawing:
+                if self.current_roi is not None:
+                    self.current_roi[2] = x - self.current_roi[0]
+                    self.current_roi[3] = y - self.current_roi[1]
 
         elif event == cv2.EVENT_LBUTTONUP:
             if self.drawing:
