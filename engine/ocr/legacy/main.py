@@ -4,7 +4,6 @@ import json
 import re
 import sys
 from queue import Queue
-import numpy as np
 
 
 class TextRecognition:
@@ -92,8 +91,8 @@ class TextRecognition:
         while self.running:
             ret, frame = self.video_capture.read()
             if ret:
+                self.display_text_instructions(frame)
                 if self.stage < len(self.stage_texts):
-                    self.display_text_instructions(frame)
                     if self.current_roi is not None:
                         self.draw_roi(frame, self.current_roi)
                     for roi in self.rois:
@@ -108,7 +107,11 @@ class TextRecognition:
         cv2.destroyAllWindows()
 
     def display_text_instructions(self, frame):
-        text = self.stage_texts[self.stage]
+        if self.stage < len(self.stage_texts):
+            text = self.stage_texts[self.stage]
+        else:
+            text = "Processo concluído. Pressione 'q' ou 'ESC' para sair."
+
         if self.current_roi is not None:
             self.floating_rectangle.set_position(self.current_roi)
         else:
@@ -131,6 +134,7 @@ class TextRecognition:
                 if self.current_roi is not None:
                     self.current_roi[2] = x - self.current_roi[0]
                     self.current_roi[3] = y - self.current_roi[1]
+                self.display_text_instructions(param)  # Passa o frame como parâmetro
 
         elif event == cv2.EVENT_LBUTTONUP:
             if self.drawing:
@@ -184,16 +188,15 @@ class FloatingRectangle:
         x, y, _, _ = self.current_mouse_position
         w, h = self.rectangle_size
         # Calcula as coordenadas do retângulo para que ele esteja acima do cursor do mouse
-        if x >= 0 and y >= 0:  # Verifica se a posição do cursor está dentro da tela
-            x1 = x - w // 2 - self.offset_x
-            y1 = y - h // 2 - self.offset_y
-            x2 = x1 + w
-            y2 = y1 + h
-            # Desenha o retângulo na imagem
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (25, 220, 255), 1)
-            # Adiciona o texto dentro do retângulo
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(frame, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
+        x1 = x - w // 2 - self.offset_x
+        y1 = y - h // 2 - self.offset_y
+        x2 = x1 + w
+        y2 = y1 + h
+        # Desenha o retângulo na imagem
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (25, 220, 255), 1)
+        # Adiciona o texto dentro do retângulo
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(frame, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
 
 
 if __name__ == "__main__":
