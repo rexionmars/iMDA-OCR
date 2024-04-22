@@ -109,9 +109,12 @@ class TextRecognition:
 
     def display_text_instructions(self, frame):
         text = self.stage_texts[self.stage]
+        if self.current_roi is not None:
+            self.floating_rectangle.set_position(self.current_roi)
+        else:
+            self.floating_rectangle.set_position((-1, -1, 0, 0))  # Define posição fora da tela
         self.floating_rectangle.set_text(text)
-        self.floating_rectangle.draw_rectangle(frame, self.floating_rectangle.current_mouse_position,
-                                               self.floating_rectangle.rectangle_size)
+        self.floating_rectangle.draw(frame)
 
     def draw_roi(self, frame, roi):
         x, y, w, h = roi
@@ -170,34 +173,26 @@ class FloatingRectangle:
         self.current_mouse_position = (0, 0)
         self.text = ""
 
-        cv2.namedWindow(self.window_name)
-        cv2.setMouseCallback(self.window_name, self.draw)
-
-        self.win = np.zeros((500, 500, 3), dtype='uint8')
-
-    def draw(self, event, x, y, flags, param):
-        self.current_mouse_position = (x, y)
-
-        if event == cv2.EVENT_MOUSEMOVE:
-            self.win[:] = 0  # Limpa a janela a cada movimento do mouse
-            self.draw_rectangle(self.win, self.current_mouse_position, self.rectangle_size)
-
-    def draw_rectangle(self, image, position, size):
-        x, y = position
-        w, h = size
-        # Calcula as coordenadas do retângulo para que ele esteja acima do cursor do mouse
-        x1 = x - w // 2 - self.offset_x
-        y1 = y - h // 2 - self.offset_y
-        x2 = x1 + w
-        y2 = y1 + h
-        # Desenha o retângulo na imagem
-        cv2.rectangle(image, (x1, y1), (x2, y2), (25, 220, 255), 1)
-        # Adiciona o texto dentro do retângulo
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(image, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
+    def set_position(self, position):
+        self.current_mouse_position = position
 
     def set_text(self, text):
         self.text = text
+
+    def draw(self, frame):
+        x, y, _, _ = self.current_mouse_position
+        w, h = self.rectangle_size
+        # Calcula as coordenadas do retângulo para que ele esteja acima do cursor do mouse
+        if x >= 0 and y >= 0:  # Verifica se a posição do cursor está dentro da tela
+            x1 = x - w // 2 - self.offset_x
+            y1 = y - h // 2 - self.offset_y
+            x2 = x1 + w
+            y2 = y1 + h
+            # Desenha o retângulo na imagem
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (25, 220, 255), 1)
+            # Adiciona o texto dentro do retângulo
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(frame, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
 
 
 if __name__ == "__main__":
