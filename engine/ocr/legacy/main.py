@@ -1,6 +1,3 @@
-"""
-This code as been formated using Black code style
-"""
 import cv2
 import easyocr
 import json
@@ -10,14 +7,11 @@ import concurrent.futures
 import requests
 import os
 import time
-
 from queue import Queue
+from rect import FloatingRectangle  # Importa a classe FloatingRectangle do arquivo rect.py
 
 
 class TextRecognition:
-    """
-    This class provides commons functions for text recognition.
-    """
 
     def __init__(self, video_source, language="en"):
         self.reader = easyocr.Reader([language])
@@ -29,35 +23,15 @@ class TextRecognition:
         self.running = True
         self.last_frame = None
         self.current_roi = None
-        #self.server_url = server_url
+        self.floating_rectangle = FloatingRectangle('Text Recognition')  # Cria uma instância de FloatingRectangle
 
     def start(self):
-        """
-        This functions is called from start OCR engine.
-        
-        Args:
-            None
-        Returns:
-            None
-        """
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            video_thread = executor.submit(self.video_processing_thread)
-            user_input_thread = executor.submit(self.handle_user_input)
-            self.display_window()
-            video_thread.result()
-            user_input_thread.result()
+        self.display_window()
 
     def read_text(self, frame):
-        """
-        This functions is called for read text from EasyOCR
-
-        Args:
-            frame (nd.array):
-        Returns:
-            None
-        """
         if frame is None:
             return
+
         roi_data = {}
         for i, roi in enumerate(self.rois):
             x, y, w, h = roi
@@ -77,10 +51,9 @@ class TextRecognition:
 
                 text_x = x + bbox[0][0]
                 text_y = y + bbox[0][1]
-                cv2.rectangle(frame, (text_x, text_y), (x + bbox[2][0], y + bbox[2][1]),
-                              (0, 255, 0), 1)
-                cv2.putText(frame, text, (text_x, text_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                            (0, 255, 0), 1)
+
+                cv2.rectangle(frame, (text_x, text_y), (x + bbox[2][0], y + bbox[2][1]), (0, 255, 0), 1)
+                cv2.putText(frame, text, (text_x, text_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
             filtered_values = [item for item in list_value if item is not None]
             filtered_values = [float(item) for item in filtered_values]
@@ -91,14 +64,6 @@ class TextRecognition:
             roi_data[f"ROI_ID {i}"] = roi_info
 
         print(json.dumps(roi_data, indent=4))
-        # response = requests.post(self.server_url, json=roi_data)
-
-        # if response.status_code == 200:
-        #     #print("Dados enviados com sucesso para o servidor.")
-        #     pass
-        # else:
-        #     print("Erro ao enviar os dados para o servidor. Código de status:",
-        #           response.status_code)
 
         self.print_roi_data(roi_data)
 
@@ -113,7 +78,6 @@ class TextRecognition:
         self.last_frame = frame
 
     def print_roi_data(self, roi_data):
-        # Your code to print ROI data goes here
         pass
 
     def extract_label_and_value(self, text):
@@ -122,21 +86,20 @@ class TextRecognition:
         value = parts[1].strip() if len(parts) > 1 else None
         return label, value
 
-    def video_processing_thread(self):
-        while self.running:
-            ret, frame = self.video_capture.read()
-            self.read_text(frame)
-
     def display_window(self):
         cv2.namedWindow("Text Recognition")
         cv2.setMouseCallback("Text Recognition", self.on_mouse_events)
 
         while self.running:
-            if self.last_frame is not None:
-                cv2.imshow("Text Recognition", self.last_frame)
+            ret, frame = self.video_capture.read()
+            if ret:
+                self.read_text(frame)
+                frame_with_rectangle = self.floating_rectangle.draw(
+                    frame)  # Chama o método draw do FloatingRectangle
+                cv2.imshow("Text Recognition", frame_with_rectangle)
 
-            key = cv2.waitKey(1) & 0xFF
-            self.event_queue.put(key)
+                key = cv2.waitKey(1) & 0xFF
+                self.event_queue.put(key)
 
         self.video_capture.release()
         cv2.destroyAllWindows()
@@ -163,16 +126,6 @@ class TextRecognition:
         if self.deleted_rois:
             self.rois.append(self.deleted_rois.pop())
 
-    def handle_user_input(self):
-        while self.running:
-            key = self.event_queue.get()
-            if key == ord("q") or key == 27:  # 27 is the ESC key
-                self.running = False
-            elif key == ord("d"):
-                self.remove_last_roi()
-            elif key == ord("u"):
-                self.undo_roi_deletion()
-
 
 class VideoCapture:
 
@@ -189,10 +142,8 @@ class VideoCapture:
 
 
 if __name__ == "__main__":
-    text_recognition = TextRecognition("http://192.168.0.38:81/stream")
-    server = "https://liveheart-global-end-point.onrender.com/receive_data"
-    #text_recognition = TextRecognition("http://192.168.0.38:81/stream", server_url=server)  #OV2640
+    text_recognition = TextRecognition(1)  # Altere para o índice da sua câmera, se necessário
     text_recognition.start()
     while text_recognition.running:
-        pass  # Wait until the "q" or "ESC" key is pressed
+        pass  # Aguarde até que a tecla "q" ou "ESC" seja pressionada
     sys.exit(0)
