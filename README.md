@@ -1,2 +1,1 @@
-# AuRA.Ai-MED.EngineOCR
-Component OCR for AuRA-Ai-MED
+Optical Character Recognition Component from AuRA-Ai-MED
