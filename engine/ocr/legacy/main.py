@@ -160,6 +160,8 @@ class TextRecognition:
                 self.display_text_instructions(param)
 
             if self.drawing:
+                self.floating_rectangle.set_position(
+                    (x, y))  # Atualiza a posição do retângulo mesmo durante o desenho
                 if self.current_roi is not None:
                     self.current_roi[2] = x - self.current_roi[0]
                     self.current_roi[3] = y - self.current_roi[1]
