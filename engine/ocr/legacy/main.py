@@ -8,9 +8,8 @@ from queue import Queue
 
 class FloatingRectangle:
 
-    def __init__(self, window_name, rectangle_size=(120, 30), offset_x=40, offset_y=40):
+    def __init__(self, window_name, offset_x=40, offset_y=40):
         self.window_name = window_name
-        self.rectangle_size = rectangle_size
         self.offset_x = offset_x
         self.offset_y = offset_y
         self.current_mouse_position = (0, 0)
@@ -25,12 +24,14 @@ class FloatingRectangle:
     def draw(self, frame):
         if len(self.current_mouse_position) == 2:
             x, y = self.current_mouse_position
-            w, h = self.rectangle_size
+            text_size = cv2.getTextSize(self.text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)[0]
+            w = text_size[0] + 10  # Adicionando um espaço extra para o texto dentro do retângulo
+            h = text_size[1] + 10  # Adicionando um espaço extra para o texto dentro do retângulo
             x1 = x - w // 2 - self.offset_x
             y1 = y - h // 2 - self.offset_y
             x2 = x1 + w
             y2 = y1 + h
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (25, 220, 255), 1)
+            cv2.rectangle(frame, (x1, y1), (x2, y2 + 10), (25, 220, 255), 1)
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(frame, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
 
@@ -49,8 +50,8 @@ class TextRecognition:
         self.current_roi = None
         self.stage = 0
         self.stage_texts = [
-            "Selecione a região principal (container)", "Selecione o label", "Selecione o valor principal",
-            "Selecione o valor mínimo", "Selecione o valor máximo"
+            "Select the main region (container)", "Select the label", "Select the main value",
+            "Select the minimum value", "Select the maximum value"
         ]
         self.floating_rectangle = FloatingRectangle('Text Recognition')
 
@@ -139,7 +140,7 @@ class TextRecognition:
         if self.stage < len(self.stage_texts):
             text = self.stage_texts[self.stage]
         else:
-            text = "Processo concluído. Pressione 'q' ou 'ESC' para sair."
+            text = "Process completed. Press 'q' or 'ESC' to exit."
 
         self.floating_rectangle.set_text(text)
         self.floating_rectangle.draw(frame)
