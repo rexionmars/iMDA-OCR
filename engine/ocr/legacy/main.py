@@ -23,15 +23,16 @@ class FloatingRectangle:
         self.text = text
 
     def draw(self, frame):
-        x, y = self.current_mouse_position
-        w, h = self.rectangle_size
-        x1 = x - w // 2 - self.offset_x
-        y1 = y - h // 2 - self.offset_y
-        x2 = x1 + w
-        y2 = y1 + h
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (25, 220, 255), 1)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(frame, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
+        if len(self.current_mouse_position) == 2:
+            x, y = self.current_mouse_position
+            w, h = self.rectangle_size
+            x1 = x - w // 2 - self.offset_x
+            y1 = y - h // 2 - self.offset_y
+            x2 = x1 + w
+            y2 = y1 + h
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (25, 220, 255), 1)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(frame, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
 
 
 class TextRecognition:
@@ -63,46 +64,43 @@ class TextRecognition:
         if self.stage == len(self.stage_texts):
             roi_data = {}
             for i, roi in enumerate(self.rois):
-                x, y, w, h, completed = roi
-                if completed:
-                    cropped_frame = frame[y:y + h, x:x + w]
-                    gray_cropped_frame = cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2GRAY)
-                    results = self.reader.readtext(gray_cropped_frame)
+                x, y, w, h = roi
+                cropped_frame = frame[y:y + h, x:x + w]
+                gray_cropped_frame = cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2GRAY)
+                results = self.reader.readtext(gray_cropped_frame)
 
-                    roi_info = {}
-                    list_value = []
+                roi_info = {}
+                list_value = []
 
-                    for bbox, text, prob in results:
-                        label, value = self.extract_label_and_value(text)
-                        list_value.append(value)
+                for bbox, text, prob in results:
+                    label, value = self.extract_label_and_value(text)
+                    list_value.append(value)
 
-                        if label:
-                            if label not in roi_info:
-                                roi_info[label] = []
+                    if label:
+                        if label not in roi_info:
+                            roi_info[label] = []
 
-                        text_x = x + bbox[0][0]
-                        text_y = y + bbox[0][1]
+                    text_x = x + bbox[0][0]
+                    text_y = y + bbox[0][1]
 
-                        cv2.rectangle(frame, (text_x, text_y), (x + bbox[2][0], y + bbox[2][1]), (0, 255, 0), 1)
-                        cv2.putText(frame, text, (text_x, text_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
-                                    1)
+                    cv2.rectangle(frame, (text_x, text_y), (x + bbox[2][0], y + bbox[2][1]), (0, 255, 0), 1)
+                    cv2.putText(frame, text, (text_x, text_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
-                    filtered_values = [item for item in list_value if item is not None]
-                    filtered_values = [float(item) for item in filtered_values]
+                filtered_values = [item for item in list_value if item is not None]
+                filtered_values = [float(item) for item in filtered_values]
 
-                    for label, values in roi_info.items():
-                        values.extend(filtered_values)
+                for label, values in roi_info.items():
+                    values.extend(filtered_values)
 
-                    roi_data[f"ROI_ID {i}"] = roi_info
+                roi_data[f"ROI_ID {i}"] = roi_info
 
             print(json.dumps(roi_data, indent=4))
 
             self.print_roi_data(roi_data)
 
             for roi in self.rois:
-                x, y, w, h, completed = roi
-                if completed:
-                    cv2.rectangle(frame, (x, y), (x + w, y + h), (214, 102, 3), 1)
+                x, y, w, h = roi
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (214, 102, 3), 1)
 
         self.last_frame = frame
 
@@ -147,28 +145,29 @@ class TextRecognition:
         self.floating_rectangle.draw(frame)
 
     def draw_roi(self, frame, roi):
-        x, y, w, h, completed = roi
-        if not completed:
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
+        x, y, w, h = roi
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
     def on_mouse_events(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
             if self.stage < len(self.stage_texts):
                 self.drawing = True
-                self.current_roi = [x, y, 0, 0, False]
+                self.current_roi = [x, y, 0, 0]
 
         elif event == cv2.EVENT_MOUSEMOVE:
+            if not self.drawing:  # Atualiza o retângulo com as instruções apenas se não estiver desenhando
+                self.floating_rectangle.set_position((x, y))
+                self.display_text_instructions(param)
+
             if self.drawing:
                 if self.current_roi is not None:
                     self.current_roi[2] = x - self.current_roi[0]
                     self.current_roi[3] = y - self.current_roi[1]
-                    self.floating_rectangle.set_position((x, y))  # Atualiza a posição do retângulo
 
         elif event == cv2.EVENT_LBUTTONUP:
             if self.drawing:
                 self.drawing = False
                 if self.current_roi is not None:
-                    self.current_roi[4] = True
                     self.rois.append(tuple(self.current_roi))
                     self.current_roi = None
                     if self.stage < len(self.stage_texts):
