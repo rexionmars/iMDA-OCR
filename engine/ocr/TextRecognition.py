@@ -7,11 +7,13 @@ from queue import Queue
 
 from common.FloatingRectangle import FloatingRectangle
 from common.VideoCapture import VideoCapture
+from common.geometrics import BasicGeometrics
 
 
 class TextRecognition:
 
     def __init__(self, video_source, language="en"):
+        self.geometric = BasicGeometrics()
         self.reader = easyocr.Reader([language])
         self.video_capture = VideoCapture(video_source)
         self.rois = []
@@ -75,7 +77,7 @@ class TextRecognition:
 
             for roi in self.rois:
                 x, y, w, h = roi
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (214, 102, 3), 1)
+                self.geometric.rounded_rectangle(frame, (x, y, w, h), thickness_of_line=1)
 
         self.last_frame = frame
 
@@ -100,7 +102,7 @@ class TextRecognition:
                     if self.current_roi is not None:
                         self.draw_roi(frame, self.current_roi)
                     for roi in self.rois:
-                        self.draw_roi(frame, roi)
+                        self.geometric.rounded_rectangle(frame, roi, thickness_of_line=1)
                 self.read_text(frame)
                 cv2.imshow("Text Recognition", frame)
 
@@ -126,7 +128,7 @@ class TextRecognition:
 
     def draw_roi(self, frame, roi):
         x, y, w, h = roi
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
+        self.geometric.rounded_rectangle(frame, (x, y, w, h), thickness_of_line=1)
 
     def on_mouse_events(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
