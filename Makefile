@@ -5,15 +5,11 @@ SHELL:=/bin/bash
 help:
 	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$'
 
-all: install run
+all: install run clean
 
 install:
 	pip install --upgrade pip
 	pip install -r requirements.txt
-
-
-test:
-	pytest -v --cov=athena
 
 
 # Remove all cache files and python compiled files
@@ -31,6 +27,4 @@ clean:
 	rm -rf docs/_build
 	rm -rf .pytest_cache
 
-
-up:
-	docker compose up
+	clear
