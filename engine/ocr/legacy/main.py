@@ -6,6 +6,34 @@ import sys
 from queue import Queue
 
 
+class FloatingRectangle:
+
+    def __init__(self, window_name, rectangle_size=(120, 30), offset_x=40, offset_y=40):
+        self.window_name = window_name
+        self.rectangle_size = rectangle_size
+        self.offset_x = offset_x
+        self.offset_y = offset_y
+        self.current_mouse_position = (0, 0)
+        self.text = ""
+
+    def set_position(self, position):
+        self.current_mouse_position = position
+
+    def set_text(self, text):
+        self.text = text
+
+    def draw(self, frame):
+        x, y = self.current_mouse_position
+        w, h = self.rectangle_size
+        x1 = x - w // 2 - self.offset_x
+        y1 = y - h // 2 - self.offset_y
+        x2 = x1 + w
+        y2 = y1 + h
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (25, 220, 255), 1)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(frame, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
+
+
 class TextRecognition:
 
     def __init__(self, video_source, language="en"):
@@ -20,8 +48,8 @@ class TextRecognition:
         self.current_roi = None
         self.stage = 0
         self.stage_texts = [
-            "Selecione a região principal (container)", "Selecione o label", "Selecione o valor principal",
-            "Selecione o valor mínimo", "Selecione o valor máximo"
+            "Select the main region (container)", "Select the label", "Select the main value",
+            "Select the minimum value", "Select the maximum value"
         ]
         self.floating_rectangle = FloatingRectangle('Text Recognition')
 
@@ -112,10 +140,6 @@ class TextRecognition:
         else:
             text = "Processo concluído. Pressione 'q' ou 'ESC' para sair."
 
-        if self.current_roi is not None:
-            self.floating_rectangle.set_position(self.current_roi)
-        else:
-            self.floating_rectangle.set_position((-1, -1, 0, 0))  # Define posição fora da tela
         self.floating_rectangle.set_text(text)
         self.floating_rectangle.draw(frame)
 
@@ -134,7 +158,7 @@ class TextRecognition:
                 if self.current_roi is not None:
                     self.current_roi[2] = x - self.current_roi[0]
                     self.current_roi[3] = y - self.current_roi[1]
-                self.display_text_instructions(param)  # Passa o frame como parâmetro
+                    self.floating_rectangle.set_position((x, y))  # Atualiza a posição do retângulo
 
         elif event == cv2.EVENT_LBUTTONUP:
             if self.drawing:
@@ -166,37 +190,6 @@ class VideoCapture:
 
     def release(self):
         self.cap.release()
-
-
-class FloatingRectangle:
-
-    def __init__(self, window_name, rectangle_size=(120, 30), offset_x=40, offset_y=40):
-        self.window_name = window_name
-        self.rectangle_size = rectangle_size
-        self.offset_x = offset_x
-        self.offset_y = offset_y
-        self.current_mouse_position = (0, 0)
-        self.text = ""
-
-    def set_position(self, position):
-        self.current_mouse_position = position
-
-    def set_text(self, text):
-        self.text = text
-
-    def draw(self, frame):
-        x, y, _, _ = self.current_mouse_position
-        w, h = self.rectangle_size
-        # Calcula as coordenadas do retângulo para que ele esteja acima do cursor do mouse
-        x1 = x - w // 2 - self.offset_x
-        y1 = y - h // 2 - self.offset_y
-        x2 = x1 + w
-        y2 = y1 + h
-        # Desenha o retângulo na imagem
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (25, 220, 255), 1)
-        # Adiciona o texto dentro do retângulo
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(frame, self.text, (x1 + 5, y1 + 20), font, 0.4, (25, 220, 255), 1, cv2.LINE_AA)
 
 
 if __name__ == "__main__":
