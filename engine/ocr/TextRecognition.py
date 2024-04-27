@@ -58,7 +58,8 @@ class TextRecognition:
                     text_y = y + bbox[0][1]
 
                     cv2.rectangle(frame, (text_x, text_y), (x + bbox[2][0], y + bbox[2][1]), (0, 255, 0), 1)
-                    cv2.putText(frame, text, (text_x, text_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    #cv2.putText(frame, text, (text_x, text_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    print(f"Label: {label}, Value: {value}")
 
                 filtered_values = [item for item in list_value if item is not None]
                 filtered_values = [float(item) for item in filtered_values]
@@ -106,6 +107,11 @@ class TextRecognition:
                 key = cv2.waitKey(1) & 0xFF
                 self.event_queue.put(key)
 
+                if key == ord('r'):  # Pressione 'r' para remover o último ROI
+                    self.remove_last_roi()
+                elif key == ord('u'):  # Pressione 'u' para desfazer a remoção do último ROI
+                    self.undo_roi_deletion()
+
         self.video_capture.release()
         cv2.destroyAllWindows()
 
@@ -152,6 +158,12 @@ class TextRecognition:
     def remove_last_roi(self):
         if self.rois:
             self.deleted_rois.append(self.rois.pop())
+
+            if self.stage > 0:
+                self.stage -= 1
+
+            if self.stage < len(self.stage_texts):
+                self.floating_rectangle.set_text(self.stage_texts[self.stage])
 
     def undo_roi_deletion(self):
         if self.deleted_rois:
