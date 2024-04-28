@@ -3,6 +3,7 @@ import easyocr
 import json
 import re
 import threading
+import time
 
 from queue import Queue
 from threading import Timer
@@ -33,18 +34,34 @@ class TextRecognition:
         ]
         self.show_floating_rectangle = True  # Flag para mostrar ou ocultar o retângulo flutuante
         self.floating_rectangle = FloatingRectangle('Text Recognition')
+        self.delayed_processing_thread = threading.Thread(target=self.delayed_processing)
+        self.delayed_processing_thread.daemon = True
+        self.delayed_processing_thread.start()
 
     def start(self):
         self.display_window()
 
     def process_filtered_values(self, unit_name: str, filtered_values: List[float]) -> None:
-        # Processamento dos valores filtrados aqui
-        unit_base_values = {
-            "current": filtered_values[0] if filtered_values else 0,
-            "min": filtered_values[1] if len(filtered_values) > 1 else 0,
-            "max": filtered_values[2] if len(filtered_values) > 2 else 0,
-        }
-        print(f"[INFO] Unit {unit_name}: {unit_base_values}")
+        # Adicione os valores filtrados à fila de processamento
+        self.event_queue.put((unit_name, filtered_values))
+
+    def delayed_processing(self):
+        while self.running:
+            # Verifique se há valores na fila de processamento
+            if not self.event_queue.empty():
+                # Obtenha os valores da fila
+                unit_name, filtered_values = self.event_queue.get()
+
+                # Processamento dos valores filtrados aqui
+                unit_base_values = {
+                    "current": filtered_values[0] if filtered_values else 0,
+                    "min": filtered_values[1] if len(filtered_values) > 1 else 0,
+                    "max": filtered_values[2] if len(filtered_values) > 2 else 0,
+                }
+                print(f"[INFO] Unit {unit_name}: {unit_base_values}")
+
+                # Simular um atraso de 1 segundo
+                time.sleep(1)
 
     def read_text(self, frame):
         if frame is None:
@@ -123,7 +140,8 @@ class TextRecognition:
                 cv2.imshow("Text Recognition", frame)
 
                 key = cv2.waitKey(1) & 0xFF
-                self.event_queue.put(key)
+                if key != 255:  # Verifica se uma tecla foi pressionada
+                    self.event_queue.put(True)  # Informa à thread de processamento que uma tecla foi pressionada
 
                 if key == ord('r'):  # Pressione 'r' para remover o último ROI
                     self.remove_last_roi()
