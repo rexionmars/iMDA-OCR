@@ -70,14 +70,12 @@ class TextRecognition:
             return
 
         if self.stage == len(self.stage_texts):
-            roi_data = {}
-            for i, roi in enumerate(self.rois):
+            for roi in self.rois:
                 x, y, w, h = roi
                 cropped_frame = frame[y:y + h, x:x + w]
                 gray_cropped_frame = cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2GRAY)
                 results = self.reader.readtext(gray_cropped_frame)
 
-                roi_info = {}
                 list_value = []
 
                 for bbox, text, prob in results:
@@ -85,31 +83,18 @@ class TextRecognition:
                     list_value.append(value)
 
                     if label:
-                        if label not in roi_info:
-                            roi_info[label] = []
+                        self.process_filtered_values(label, [float(value) if value is not None else 0])
 
                     text_x = x + bbox[0][0]
                     text_y = y + bbox[0][1]
 
-                    cv2.rectangle(frame, (text_x, text_y), (x + bbox[2][0], y + bbox[2][1]), (0, 255, 0), 1)
-                    #cv2.putText(frame, text, (text_x, text_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-                    #print(f"Label: {label}, Value: {value}")
+                    # Desenha o texto e o retângulo ao redor do texto reconhecido
+                    #cv2.rectangle(frame, (text_x, text_y), (x + bbox[2][0], y + bbox[2][1]), (0, 255, 0), 1)
 
                 # Remove valores nulos da lista
-                filtered_values = [item for item in list_value if item is not None]
-                filtered_values = [float(item) for item in filtered_values]
+                filtered_values = [float(item) for item in list_value if item is not None]
+                #self.print_roi_data(label, filtered_values)
 
-                self.process_filtered_values(label, filtered_values)
-
-                for label, values in roi_info.items():
-                    values.extend(filtered_values)
-
-                roi_data[f"ROI_ID {i}"] = roi_info
-
-            #self.print_roi_data(label, filtered_values)
-
-            for roi in self.rois:
-                x, y, w, h = roi
                 self.geometric.rounded_rectangle(frame, (x, y, w, h), thickness_of_line=1)
 
         self.last_frame = frame
