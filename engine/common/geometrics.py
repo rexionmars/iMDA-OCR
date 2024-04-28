@@ -1,6 +1,6 @@
 import cv2
 
-from configurations.constants import DEAFULT_COLOR_RECTANGLE as YELLOW
+from configurations.constants import DEAFULT_COLOR_DETECTION_RECTANGLE as YELLOW
 
 
 class BasicGeometrics:
