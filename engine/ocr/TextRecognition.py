@@ -2,8 +2,11 @@ import cv2
 import easyocr
 import json
 import re
+import threading
 
 from queue import Queue
+from threading import Timer
+from typing import List
 
 from common.FloatingRectangle import FloatingRectangle
 from common.VideoCapture import VideoCapture
@@ -25,14 +28,23 @@ class TextRecognition:
         self.current_roi = None
         self.stage = 0
         self.stage_texts = [
-            "Select the main region (container)", "Select the label", "Select the main value",
-            "Select the minimum value", "Select the maximum value"
+            "Select the Information Unit", "Select the label", "Select the main value", "Select the minimum value",
+            "Select the maximum value"
         ]
         self.show_floating_rectangle = True  # Flag para mostrar ou ocultar o retângulo flutuante
         self.floating_rectangle = FloatingRectangle('Text Recognition')
 
     def start(self):
         self.display_window()
+
+    def process_filtered_values(self, unit_name: str, filtered_values: List[float]) -> None:
+        # Processamento dos valores filtrados aqui
+        unit_base_values = {
+            "current": filtered_values[0] if filtered_values else 0,
+            "min": filtered_values[1] if len(filtered_values) > 1 else 0,
+            "max": filtered_values[2] if len(filtered_values) > 2 else 0,
+        }
+        print(f"[INFO] Unit {unit_name}: {unit_base_values}")
 
     def read_text(self, frame):
         if frame is None:
@@ -62,17 +74,18 @@ class TextRecognition:
 
                     cv2.rectangle(frame, (text_x, text_y), (x + bbox[2][0], y + bbox[2][1]), (0, 255, 0), 1)
                     #cv2.putText(frame, text, (text_x, text_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-                    print(f"Label: {label}, Value: {value}")
+                    #print(f"Label: {label}, Value: {value}")
 
+                # Remove valores nulos da lista
                 filtered_values = [item for item in list_value if item is not None]
                 filtered_values = [float(item) for item in filtered_values]
+
+                self.process_filtered_values(label, filtered_values)
 
                 for label, values in roi_info.items():
                     values.extend(filtered_values)
 
                 roi_data[f"ROI_ID {i}"] = roi_info
-
-            print(json.dumps(roi_data, indent=4))
 
             self.print_roi_data(roi_data)
 
