@@ -28,6 +28,7 @@ class TextRecognition:
             "Select the main region (container)", "Select the label", "Select the main value",
             "Select the minimum value", "Select the maximum value"
         ]
+        self.show_floating_rectangle = True  # Flag para mostrar ou ocultar o retângulo flutuante
         self.floating_rectangle = FloatingRectangle('Text Recognition')
 
     def start(self):
@@ -104,6 +105,8 @@ class TextRecognition:
                     for roi in self.rois:
                         self.geometric.rounded_rectangle(frame, roi, thickness_of_line=1)
                 self.read_text(frame)
+                if self.show_floating_rectangle:  # Verifica se o retângulo flutuante deve ser exibido
+                    self.floating_rectangle.draw(frame)
                 cv2.imshow("Text Recognition", frame)
 
                 key = cv2.waitKey(1) & 0xFF
@@ -122,9 +125,9 @@ class TextRecognition:
             text = self.stage_texts[self.stage]
         else:
             text = "Process completed. Press 'q' or 'ESC' to exit."
+            self.show_floating_rectangle = False
 
         self.floating_rectangle.set_text(text)
-        self.floating_rectangle.draw(frame)
 
     def draw_roi(self, frame, roi):
         x, y, w, h = roi
@@ -139,7 +142,6 @@ class TextRecognition:
         elif event == cv2.EVENT_MOUSEMOVE:
             if not self.drawing:  # Atualiza o retângulo com as instruções apenas se não estiver desenhando
                 self.floating_rectangle.set_position((x, y))
-                self.display_text_instructions(param)
 
             if self.drawing:
                 self.floating_rectangle.set_position(
@@ -170,3 +172,6 @@ class TextRecognition:
     def undo_roi_deletion(self):
         if self.deleted_rois:
             self.rois.append(self.deleted_rois.pop())
+
+            if self.stage < len(self.stage_texts):
+                self.floating_rectangle.set_text(self.stage_texts[self.stage])
