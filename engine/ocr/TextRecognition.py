@@ -62,6 +62,8 @@ class TextRecognition:
 
                 # Simular um atraso de 1 segundo
                 time.sleep(1)
+                self.print_roi_data(unit_name, filtered_values)
+                #return unit_name, unit_base_values
 
     def read_text(self, frame):
         if frame is None:
@@ -104,7 +106,7 @@ class TextRecognition:
 
                 roi_data[f"ROI_ID {i}"] = roi_info
 
-            self.print_roi_data(roi_data)
+            #self.print_roi_data(label, filtered_values)
 
             for roi in self.rois:
                 x, y, w, h = roi
@@ -112,8 +114,16 @@ class TextRecognition:
 
         self.last_frame = frame
 
-    def print_roi_data(self, roi_data):
-        pass
+    def print_roi_data(self, unit_name: str, unit_values: List[float]) -> None:
+        unit_data_structure = {
+            f"{unit_name}": {
+                "current": unit_values[0] if unit_values else 0,
+                "min": unit_values[1] if len(unit_values) > 1 else 0,
+                "max": unit_values[2] if len(unit_values) > 2 else 0,
+            }
+        }
+
+        print(json.dumps(unit_data_structure, indent=4))
 
     def extract_label_and_value(self, text):
         parts = re.split(r"(\d+)", text)
