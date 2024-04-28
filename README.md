@@ -1,5 +1,7 @@
 Optical Character Recognition Component from AuRA-Ai-MED
+```python
+opensource.leonardi@gmail.com
+```
 
-<video width="320" height="240" controls>
-  <source src="docs/mp4/2024-04-27 22-21-54.mp4" type="video/mp4">
-</video>
+https://github.com/rexionmars/AuRA.Ai-MED.EngineOCR/assets/131300370/79f9ae09-9635-429a-8846-b5e8d20d8e9d
+
