@@ -147,13 +147,17 @@ class TextRecognition:
 
     def draw_text_input(self, frame, prompt):
         font = cv2.FONT_HERSHEY_SIMPLEX
-        text = ''
+        text = "Enter the label: "
         self.floating_rectangle.set_text(prompt)
+
+        # Posição do texto ao lado da instrução "Enter the label"
+        text_x = 250
+        text_y = 85
 
         while True:
             temp_frame = frame.copy()
             self.floating_rectangle.draw(temp_frame)
-            cv2.putText(temp_frame, text, (60, 85), font, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
+            #cv2.putText(temp_frame, text, (text_x, text_y), font, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
             cv2.imshow("Text Recognition", temp_frame)
 
             key = cv2.waitKey(1) & 0xFF
@@ -161,26 +165,35 @@ class TextRecognition:
             if key == 13:  # Enter key
                 break
             elif key == 8:  # Backspace key
-                text = text[:-1]
+                # Verifica se o texto digitado tem mais do que apenas o prefixo "Enter the label: "
+                if len(text) > len("Enter the label: "):
+                    text = text[:-1]
             elif key == 27:  # Esc key
-                text = ''
+                text = ""
                 break
             elif 32 <= key <= 126:  # Printable characters
                 text += chr(key)
 
+            # Atualize o texto do FloatingRectangle
+            self.floating_rectangle.set_text(text)
+
         return text
 
+
+    
     def display_window(self):
         cv2.namedWindow("Text Recognition")
         cv2.setMouseCallback("Text Recognition", self.on_mouse_events)
+
+        label_text = None  # Variável para armazenar o texto digitado
 
         while self.running:
             ret, frame = self.video_capture.read()
             if ret:
                 self.display_text_instructions(frame)
                 if self.stage < len(self.stage_texts) and self.stage_texts[self.stage] == "Enter the label":
-                #if self.stage_texts[self.stage] == "Enter the label":
-                    self.label_text = self.draw_text_input(frame, "Enter the label: ")
+                    # Se o estágio atual for para digitar a label, chame a função draw_text_input
+                    label_text = self.draw_text_input(frame, "Enter the label: ")
                     self.stage += 1  # Progresso para o próximo estágio
                 else:
                     if self.stage < len(self.stage_texts):
@@ -204,6 +217,12 @@ class TextRecognition:
                     self.remove_last_roi()
                 elif key == ord('u'):  # Pressione 'u' para desfazer a remoção do último ROI
                     self.undo_roi_deletion()
+
+                # Atualize a label_text se houver texto digitado
+                if label_text is not None:
+                    self.label_text = label_text
+                    label_text = None  # Reseta label_text para None após a atribuição
+
 
         self.video_capture.release()
         cv2.destroyAllWindows()
