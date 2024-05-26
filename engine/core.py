@@ -1,6 +1,6 @@
 import sys
 import argparse
-from ocr.TextRecognition import TextRecognition
+from ocr import TextRecognition
 
 
 def main(camera_index):
