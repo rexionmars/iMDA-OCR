@@ -73,7 +73,9 @@ class TextRecognition:
             # Verifique se há valores na fila de processamento
             if not self.event_queue.empty():
                 # Obtenha os valores da fila
+                ic.configureOutput(prefix="Teste do delay\t")
                 unit_name, filtered_values = self.event_queue.get()
+                
 
                 unit_base_values = {
                     "current": filtered_values[0] if filtered_values else 0,
@@ -82,8 +84,8 @@ class TextRecognition:
                 }
 
                 time.sleep(1)  # Delay para controlar a taxa de processamento
-                if ENABLE_DEBUG_ROI_INFO:
-                    self._print_roi_data(unit_name, filtered_values)
+                ic(filtered_values)
+                
                 return unit_name, unit_base_values
 
     def _extract_label_and_value(self, text):
@@ -117,11 +119,10 @@ class TextRecognition:
                 list_value = []
 
                 for bbox, text, prob in results:
-                    label, value = self._extract_label_and_value(text)
+                    _, value = self._extract_label_and_value(text)
                     list_value.append(value)
 
-                    if label:
-                        self.process_filtered_values(label, [float(value) if value is not None else 0])
+                    self.process_filtered_values(self.text, [float(value) if value is not None else 0])
 
                     text_x = x + bbox[0][0]
                     text_y = y + bbox[0][1]
@@ -133,8 +134,8 @@ class TextRecognition:
 
                 # Remove valores nulos da lista
                 filtered_values = [float(item) for item in list_value if item is not None]
-                ic.configureOutput(prefix="Filtered Values\t")
-                ic(filtered_values)
+                # ic.configureOutput(prefix="Filtered Values\t")
+                # ic(filtered_values)
 
                 # ROI
                 self.geometric.rounded_rectangle(frame, (x, y, w, h), thickness_of_line=1)
@@ -147,7 +148,7 @@ class TextRecognition:
 
     def draw_text_input(self, frame, prompt):
         font = cv2.FONT_HERSHEY_SIMPLEX
-        text = "Enter the label: "
+        self.text = "Enter the label: "
         self.floating_rectangle.set_text(prompt)
 
         # Posição do texto ao lado da instrução "Enter the label"
@@ -166,18 +167,18 @@ class TextRecognition:
                 break
             elif key == 8:  # Backspace key
                 # Verifica se o texto digitado tem mais do que apenas o prefixo "Enter the label: "
-                if len(text) > len("Enter the label: "):
-                    text = text[:-1]
+                if len(self.text) > len("Enter the label: "):
+                    self.text = self.text[:-1]
             elif key == 27:  # Esc key
-                text = ""
+                self.text = ''
                 break
             elif 32 <= key <= 126:  # Printable characters
-                text += chr(key)
+                self.text += chr(key)
 
             # Atualize o texto do FloatingRectangle
-            self.floating_rectangle.set_text(text)
+            self.floating_rectangle.set_text(self.text)
 
-        return text
+        return self.text
 
 
     
