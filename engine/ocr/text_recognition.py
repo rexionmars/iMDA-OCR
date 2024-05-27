@@ -1,29 +1,22 @@
-import pandas as pd
-import threading
-import easyocr
-import time
-import cv2
 import re
-
-from threading import Timer
+import threading
+import time
 from queue import Queue
+from threading import Timer
 from typing import List
-from icecream import ic
 
-from common import FloatingRectangle
-from common import BasicGeometrics
-from common import VideoCapture
-from configurations.debug_flag_control import ENABLE_VISUAL_GEOMETRIC_DETECTORS, ENABLE_DEBUG_ROI_INFO
-from configurations.constants import DEAFULT_COLOR_DETECTION_RECTANGLE as YELLOW
+import cv2
+import easyocr
+import pandas as pd
+from common import BasicGeometrics, FloatingRectangle, VideoCapture
 from configurations.constants import DEFAULT_COLOR_DETECTION_TEXT as GREEN
+from configurations.debug_flag_control import ENABLE_VISUAL_GEOMETRIC_DETECTORS
+from icecream import ic
 
 
 class TextRecognition:
     stage_texts = [
-        "Select the Information Unit",
-        "Enter the label name",
-        "Select the main value",
-        "Select the minimum value",
+        "Select the Information Unit", "Enter the label name", "Select the main value", "Select the minimum value",
         "Select the maximum value"
     ]
 
@@ -41,7 +34,7 @@ class TextRecognition:
         self.current_roi = None
         self.stage = 0
         self.show_floating_rectangle = True
-        self.delayed_processing_thread = threading.Thread(target=self.delayed_processing)
+        self.delayed_processing_thread = threading.Thread(target=self._delayed_processing)
         self.delayed_processing_thread.daemon = True
         self.delayed_processing_thread.start()
         self.label_text = ""
@@ -49,47 +42,64 @@ class TextRecognition:
     def start(self):
         self.display_window()
 
-    def process_filtered_values(self, unit_name: str, filtered_values: List[float]) -> None:
+    def _process_filtered_values(self, unit_name: str, filtered_values: List[float]) -> None:
         # Adicione os valores filtrados à fila de processamento
         self.event_queue.put((unit_name, filtered_values))
-    
-    # Salva os dados em um determinado intervalo de tempo: 15s, 30s, 1m, 30m, 3h, 1h, 6h, 12h, 24h
-    def save_data_in_interval(self, unit_name: str, unit_values: List[float], interval: int) -> None:
-        # Salve os dados em um arquivo CSV
-        data = {
+
+    def _save_data_in_interval(self, unit_name: str, unit_values: List[float], interval: int = 60) -> None:
+        """
+        Salve os dados em um arquivo CSV
+        Salva os dados em um determinado intervalo de tempo: 15s, 30s, 1m, 30m, 3h, 1h, 6h, 12h, 24h
+
+        Args:
+            unit_name (str): Nome da unidade
+            unit_values (List[float]): Lista de valores da unidade
+            interval (int): Intervalo de tempo em segundos
+        """
+        data_unit = {
             "unit_name": unit_name,
             "current": unit_values[0] if unit_values else 0,
             "min": unit_values[1] if len(unit_values) > 1 else 0,
             "max": unit_values[2] if len(unit_values) > 2 else 0,
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
-        df = pd.DataFrame(data, index=[0])
-        df.to_csv(f"data.csv", mode="a", header=False, index=False)
-
+        df = pd.DataFrame(data_unit, index=[0])
+        df.to_csv(f"{unit_name}.csv", mode="a", header=False, index=False)
 
         # Agende a próxima execução
-        Timer(interval, self.save_data_in_interval, args=[unit_name, unit_values, interval]).start()
+        #Timer(interval, self._save_data_in_interval, args=[unit_name, unit_values, interval]).start()
 
-    def delayed_processing(self) -> None:
+    def _delayed_processing(self) -> None:
+        """
+        Processamento atrasado dos valores filtrados, usado para controlar a taxa de processamento.
+
+        Args:
+            None.
+        Returns:
+            None.
+        """
         while self.running:
             # Verifique se há valores na fila de processamento
             if not self.event_queue.empty():
-                # Obtenha os valores da fila
-                pred_unit_name, filtered_values = self.event_queue.get()
-                label = self.text[22:]
-                
-                unit_base_values = {
+                pred_unit_name, filtered_values = (self.event_queue.get())  # Obtenha os valores da fila
+                # Pega somente o nome da unidade, sem o prefixo "Enter the label name: "
+                label = self.text[22:].upper()
+                label = label.replace(" ", "_")
+
+                unit_values = {
                     "current": filtered_values[0] if filtered_values else 0,
                     "min": filtered_values[1] if len(filtered_values) > 1 else 0,
                     "max": filtered_values[2] if len(filtered_values) > 2 else 0,
                 }
 
                 time.sleep(1)  # Delay para controlar a taxa de processamento
-                ic.configureOutput(prefix="[INFO] Using delayed processing (Main)\t", includeContext=True)
-                ic(label, unit_base_values)
+                ic.configureOutput(
+                    prefix="[INFO] Using delayed processing (Main)\t",
+                    includeContext=True,
+                )
+                ic(label, unit_values)
                 self._print_roi_data(label, filtered_values)
-                
-                #return unit_name, unit_base_values
+                self._save_data_in_interval(label, filtered_values)
 
     def _extract_label_and_value(self, text):
         parts = re.split(r"(\d+)", text)
@@ -121,11 +131,11 @@ class TextRecognition:
 
                 list_value = []
 
-                for bbox, text, prob in results:
+                for bbox, text, _prob in results:
                     _, value = self._extract_label_and_value(text)
                     list_value.append(value)
 
-                    self.process_filtered_values(_, [float(value) if value is not None else 0])
+                    self._process_filtered_values(_, [float(value) if value is not None else 0])
 
                     text_x = x + bbox[0][0]
                     text_y = y + bbox[0][1]
@@ -136,7 +146,7 @@ class TextRecognition:
                         cv2.putText(frame, text, (text_x, text_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, GREEN, 1)
 
                 # Remove valores nulos da lista
-                filtered_values = [float(item) for item in list_value if item is not None]
+                _filtered_values = [float(item) for item in list_value if item is not None]
 
                 # ROI
                 self.geometric.rounded_rectangle(frame, (x, y, w, h), thickness_of_line=1)
@@ -148,7 +158,6 @@ class TextRecognition:
         self.geometric.rounded_rectangle(frame, (x, y, w, h), thickness_of_line=1)
 
     def draw_text_input(self, frame, prompt):
-        font = cv2.FONT_HERSHEY_SIMPLEX
         self.text = "Enter the label name: "
         self.floating_rectangle.set_text(prompt)
 
@@ -166,7 +175,7 @@ class TextRecognition:
                 if len(self.text) > len("Enter the label name: "):
                     self.text = self.text[:-1]
             elif key == 27:  # Esc key
-                self.text = ''
+                self.text = ""
                 break
             elif 32 <= key <= 126:  # Printable characters
                 self.text += chr(key)
@@ -186,7 +195,7 @@ class TextRecognition:
             ret, frame = self.video_capture.read()
             if ret:
                 self.display_text_instructions(frame)
-                if self.stage < len(self.stage_texts) and self.stage_texts[self.stage] == "Enter the label name":
+                if (self.stage < len(self.stage_texts) and self.stage_texts[self.stage] == "Enter the label name"):
                     # Se o estágio atual for para digitar a label, chame a função draw_text_input
                     label_text = self.draw_text_input(frame, "Enter the label: ")
                     ic.configureOutput(prefix="[INFO] Label Text\t", includeContext=True)
@@ -200,7 +209,7 @@ class TextRecognition:
                             self.geometric.rounded_rectangle(frame, roi, thickness_of_line=1)
                     self.read_text(frame)
 
-                    if self.show_floating_rectangle:  # Verifica se o retângulo flutuante deve ser exibido
+                    if (self.show_floating_rectangle):  # Verifica se o retângulo flutuante deve ser exibido
                         self.floating_rectangle.draw(frame)
                     cv2.imshow("Text Recognition", frame)
 
@@ -208,11 +217,11 @@ class TextRecognition:
                 if key != 255:  # Verifica se uma tecla foi pressionada
                     self.event_queue.put(True)  # Informa à thread de processamento que uma tecla foi pressionada
 
-                if key == ord('q'):
+                if key == ord("q"):
                     self.running = False
-                elif key == ord('r'):  # Pressione 'r' para remover o último ROI
+                elif key == ord("r"):  # Pressione 'r' para remover o último ROI
                     self.remove_last_roi()
-                elif key == ord('u'):  # Pressione 'u' para desfazer a remoção do último ROI
+                elif key == ord("u"):  # Pressione 'u' para desfazer a remoção do último ROI
                     self.undo_roi_deletion()
 
                 # Atualize a label_text se houver texto digitado
@@ -232,7 +241,6 @@ class TextRecognition:
 
         self.floating_rectangle.set_text(text)
 
-
     def on_mouse_events(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
             if self.stage < len(self.stage_texts):
@@ -240,7 +248,7 @@ class TextRecognition:
                 self.current_roi = [x, y, 0, 0]
 
         elif event == cv2.EVENT_MOUSEMOVE:
-            if not self.drawing:  # Atualiza o retângulo com as instruções apenas se não estiver desenhando
+            if (not self.drawing):  # Atualiza o retângulo com as instruções apenas se não estiver desenhando
                 self.floating_rectangle.set_position((x, y))
 
             if self.drawing:
@@ -275,7 +283,7 @@ class TextRecognition:
 
             if self.stage < len(self.stage_texts):
                 self.floating_rectangle.set_text(self.stage_texts[self.stage])
-            
+
 
 if __name__ == "__main__":
     text_recognition = TextRecognition(0)
