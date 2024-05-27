@@ -20,7 +20,10 @@ from configurations.constants import DEFAULT_COLOR_DETECTION_TEXT as GREEN
 
 class TextRecognition:
     stage_texts = [
-        "Select the Information Unit", "Enter the label", "Select the main value", "Select the minimum value",
+        "Select the Information Unit",
+        "Enter the label",
+        "Select the main value",
+        "Select the minimum value",
         "Select the maximum value"
     ]
 
@@ -37,7 +40,7 @@ class TextRecognition:
         self.current_roi = None
         self.stage = 0
         self.show_floating_rectangle = True
-        self.floating_rectangle = FloatingRectangle('Text Recognition')
+        self.floating_rectangle = FloatingRectangle("Text Recognition")
         self.delayed_processing_thread = threading.Thread(target=self.delayed_processing)
         self.delayed_processing_thread.daemon = True
         self.delayed_processing_thread.start()
@@ -61,8 +64,7 @@ class TextRecognition:
             "timestamp": time.time()
         }
         df = pd.DataFrame(data, index=[0])
-        df.to_csv(f"{unit_name}.csv", mode="a", header=False, index=False)
-        ic.configureOutput(prefix="Data Saved\t")
+        df.to_csv(f"data.csv", mode="a", header=False, index=False)
 
 
         # Agende a próxima execução
@@ -73,10 +75,8 @@ class TextRecognition:
             # Verifique se há valores na fila de processamento
             if not self.event_queue.empty():
                 # Obtenha os valores da fila
-                ic.configureOutput(prefix="Teste do delay\t")
                 unit_name, filtered_values = self.event_queue.get()
                 
-
                 unit_base_values = {
                     "current": filtered_values[0] if filtered_values else 0,
                     "min": filtered_values[1] if len(filtered_values) > 1 else 0,
@@ -84,9 +84,11 @@ class TextRecognition:
                 }
 
                 time.sleep(1)  # Delay para controlar a taxa de processamento
-                ic(filtered_values)
+                ic.configureOutput(prefix="[INFO] Using delayed processing (Main)\t", includeContext=True)
+                ic(unit_name, unit_base_values)
+                self._print_roi_data(unit_name, filtered_values)
                 
-                return unit_name, unit_base_values
+                #return unit_name, unit_base_values
 
     def _extract_label_and_value(self, text):
         parts = re.split(r"(\d+)", text)
@@ -102,7 +104,7 @@ class TextRecognition:
                 "max": unit_values[2] if len(unit_values) > 2 else 0,
             }
         }
-        ic.configureOutput(prefix="Unit Data Structure\t")
+        ic.configureOutput(prefix="[INFO] Unit Data Structure\t", includeContext=True)
         ic(_unit_data_structure)
 
     def read_text(self, frame):
@@ -122,7 +124,7 @@ class TextRecognition:
                     _, value = self._extract_label_and_value(text)
                     list_value.append(value)
 
-                    self.process_filtered_values(self.text, [float(value) if value is not None else 0])
+                    self.process_filtered_values(_, [float(value) if value is not None else 0])
 
                     text_x = x + bbox[0][0]
                     text_y = y + bbox[0][1]
@@ -134,8 +136,6 @@ class TextRecognition:
 
                 # Remove valores nulos da lista
                 filtered_values = [float(item) for item in list_value if item is not None]
-                # ic.configureOutput(prefix="Filtered Values\t")
-                # ic(filtered_values)
 
                 # ROI
                 self.geometric.rounded_rectangle(frame, (x, y, w, h), thickness_of_line=1)
@@ -151,14 +151,9 @@ class TextRecognition:
         self.text = "Enter the label: "
         self.floating_rectangle.set_text(prompt)
 
-        # Posição do texto ao lado da instrução "Enter the label"
-        text_x = 250
-        text_y = 85
-
         while True:
             temp_frame = frame.copy()
             self.floating_rectangle.draw(temp_frame)
-            #cv2.putText(temp_frame, text, (text_x, text_y), font, 0.7, (0, 0, 0), 2, cv2.LINE_AA)
             cv2.imshow("Text Recognition", temp_frame)
 
             key = cv2.waitKey(1) & 0xFF
@@ -180,8 +175,6 @@ class TextRecognition:
 
         return self.text
 
-
-    
     def display_window(self):
         cv2.namedWindow("Text Recognition")
         cv2.setMouseCallback("Text Recognition", self.on_mouse_events)
@@ -223,7 +216,6 @@ class TextRecognition:
                 if label_text is not None:
                     self.label_text = label_text
                     label_text = None  # Reseta label_text para None após a atribuição
-
 
         self.video_capture.release()
         cv2.destroyAllWindows()
