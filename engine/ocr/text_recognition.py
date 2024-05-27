@@ -21,7 +21,7 @@ from configurations.constants import DEFAULT_COLOR_DETECTION_TEXT as GREEN
 class TextRecognition:
     stage_texts = [
         "Select the Information Unit",
-        "Enter the label",
+        "Enter the label name",
         "Select the main value",
         "Select the minimum value",
         "Select the maximum value"
@@ -31,16 +31,16 @@ class TextRecognition:
         self.geometric = BasicGeometrics()
         self.reader = easyocr.Reader([language])
         self.video_capture = VideoCapture(video_source)
+        self.floating_rectangle = FloatingRectangle("Text Recognition")
+        self.event_queue = Queue()
         self.rois = []
         self.deleted_rois = []
-        self.event_queue = Queue()
         self.drawing = False
         self.running = True
         self.last_frame = None
         self.current_roi = None
         self.stage = 0
         self.show_floating_rectangle = True
-        self.floating_rectangle = FloatingRectangle("Text Recognition")
         self.delayed_processing_thread = threading.Thread(target=self.delayed_processing)
         self.delayed_processing_thread.daemon = True
         self.delayed_processing_thread.start()
@@ -75,7 +75,8 @@ class TextRecognition:
             # Verifique se há valores na fila de processamento
             if not self.event_queue.empty():
                 # Obtenha os valores da fila
-                unit_name, filtered_values = self.event_queue.get()
+                pred_unit_name, filtered_values = self.event_queue.get()
+                label = self.text[22:]
                 
                 unit_base_values = {
                     "current": filtered_values[0] if filtered_values else 0,
@@ -85,8 +86,8 @@ class TextRecognition:
 
                 time.sleep(1)  # Delay para controlar a taxa de processamento
                 ic.configureOutput(prefix="[INFO] Using delayed processing (Main)\t", includeContext=True)
-                ic(unit_name, unit_base_values)
-                self._print_roi_data(unit_name, filtered_values)
+                ic(label, unit_base_values)
+                self._print_roi_data(label, filtered_values)
                 
                 #return unit_name, unit_base_values
 
@@ -148,7 +149,7 @@ class TextRecognition:
 
     def draw_text_input(self, frame, prompt):
         font = cv2.FONT_HERSHEY_SIMPLEX
-        self.text = "Enter the label: "
+        self.text = "Enter the label name: "
         self.floating_rectangle.set_text(prompt)
 
         while True:
@@ -162,7 +163,7 @@ class TextRecognition:
                 break
             elif key == 8:  # Backspace key
                 # Verifica se o texto digitado tem mais do que apenas o prefixo "Enter the label: "
-                if len(self.text) > len("Enter the label: "):
+                if len(self.text) > len("Enter the label name: "):
                     self.text = self.text[:-1]
             elif key == 27:  # Esc key
                 self.text = ''
@@ -185,9 +186,11 @@ class TextRecognition:
             ret, frame = self.video_capture.read()
             if ret:
                 self.display_text_instructions(frame)
-                if self.stage < len(self.stage_texts) and self.stage_texts[self.stage] == "Enter the label":
+                if self.stage < len(self.stage_texts) and self.stage_texts[self.stage] == "Enter the label name":
                     # Se o estágio atual for para digitar a label, chame a função draw_text_input
                     label_text = self.draw_text_input(frame, "Enter the label: ")
+                    ic.configureOutput(prefix="[INFO] Label Text\t", includeContext=True)
+                    ic(label_text)
                     self.stage += 1  # Progresso para o próximo estágio
                 else:
                     if self.stage < len(self.stage_texts):
