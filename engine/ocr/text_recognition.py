@@ -1,17 +1,19 @@
-import re
-import threading
-import time
-from queue import Queue
-from threading import Timer
-from typing import List
-
 import cv2
 import easyocr
 import pandas as pd
+import numpy as np
+import re
+import threading
+import time
+import json
+
+from icecream import ic
+from queue import Queue
+from typing import List
+
 from common import BasicGeometrics, FloatingRectangle, VideoCapture
 from configurations.constants import DEFAULT_COLOR_DETECTION_TEXT as GREEN
 from configurations.debug_flag_control import ENABLE_VISUAL_GEOMETRIC_DETECTORS
-from icecream import ic
 
 
 class TextRecognition:
@@ -34,19 +36,20 @@ class TextRecognition:
         self.current_roi = None
         self.stage = 0
         self.show_floating_rectangle = True
-        self.delayed_processing_thread = threading.Thread(target=self._delayed_processing)
+        self.delayed_processing_thread = threading.Thread(target=self.__delayed_processing)
         self.delayed_processing_thread.daemon = True
         self.delayed_processing_thread.start()
         self.label_text = ""
+        self.start_time = None
 
     def start(self):
         self.display_window()
 
-    def _process_filtered_values(self, unit_name: str, filtered_values: List[float]) -> None:
+    def __process_filtered_values(self, filtered_values: List[float]) -> None:
         # Adicione os valores filtrados à fila de processamento
-        self.event_queue.put((unit_name, filtered_values))
+        self.event_queue.put((filtered_values))
 
-    def _save_data_in_interval(self, unit_name: str, unit_values: List[float], interval: int = 60) -> None:
+    def __save_data_in_interval(self, unit_name: str, unit_values: List[float]) -> None:
         """
         Salve os dados em um arquivo CSV
         Salva os dados em um determinado intervalo de tempo: 15s, 30s, 1m, 30m, 3h, 1h, 6h, 12h, 24h
@@ -56,12 +59,18 @@ class TextRecognition:
             unit_values (List[float]): Lista de valores da unidade
             interval (int): Intervalo de tempo em segundos
         """
+        if self.start_time is None:
+            self.start_time = time.time()
+
+        current_time = time.time()
+        elapsed_time = int(current_time - self.start_time)
+
         data_unit = {
             "unit_name": unit_name,
             "current": unit_values[0] if unit_values else 0,
             "min": unit_values[1] if len(unit_values) > 1 else 0,
             "max": unit_values[2] if len(unit_values) > 2 else 0,
-            "timestamp": time.time(),
+            "time": elapsed_time
         }
         df = pd.DataFrame(data_unit, index=[0])
         df.to_csv(f"{unit_name}.csv", mode="a", header=False, index=False)
@@ -69,7 +78,7 @@ class TextRecognition:
         # Agende a próxima execução
         #Timer(interval, self._save_data_in_interval, args=[unit_name, unit_values, interval]).start()
 
-    def _delayed_processing(self) -> None:
+    def __delayed_processing(self) -> None:
         """
         Processamento atrasado dos valores filtrados, usado para controlar a taxa de processamento.
 
@@ -81,33 +90,30 @@ class TextRecognition:
         while self.running:
             # Verifique se há valores na fila de processamento
             if not self.event_queue.empty():
-                pred_unit_name, filtered_values = (self.event_queue.get())  # Obtenha os valores da fila
+                filtered_values = (self.event_queue.get())  # Obtenha os valores da fila
                 # Pega somente o nome da unidade, sem o prefixo "Enter the label name: "
                 label = self.text[22:].upper()
                 label = label.replace(" ", "_")
 
-                unit_values = {
-                    "current": filtered_values[0] if filtered_values else 0,
-                    "min": filtered_values[1] if len(filtered_values) > 1 else 0,
-                    "max": filtered_values[2] if len(filtered_values) > 2 else 0,
-                }
-
                 time.sleep(1)  # Delay para controlar a taxa de processamento
-                ic.configureOutput(
-                    prefix="[INFO] Using delayed processing (Main)\t",
-                    includeContext=True,
-                )
-                ic(label, unit_values)
-                self._print_roi_data(label, filtered_values)
-                self._save_data_in_interval(label, filtered_values)
+                self.__print_roi_data(label, filtered_values)
+                self.__save_data_in_interval(label, filtered_values)
 
-    def _extract_label_and_value(self, text):
+    def __extract_label_and_value(self, text):
+        """
+        Extraia o rótulo e o valor do texto reconhecido.
+
+        Args:
+            text (str): Texto reconhecido.
+        Returns:
+            Tuple[str, str]: Rótulo e valor do texto reconhecido.
+        """
         parts = re.split(r"(\d+)", text)
-        label = parts[0].strip()
+        _label = parts[0].strip()
         value = parts[1].strip() if len(parts) > 1 else None
-        return label, value
+        return value
 
-    def _print_roi_data(self, unit_name: str, unit_values: List[float]) -> None:
+    def __print_roi_data(self, unit_name: str, unit_values: List[float]) -> None:
         _unit_data_structure = {
             f"{unit_name}": {
                 "current": unit_values[0] if unit_values else 0,
@@ -116,9 +122,9 @@ class TextRecognition:
             }
         }
         ic.configureOutput(prefix="[INFO] Unit Data Structure\t", includeContext=True)
-        ic(_unit_data_structure)
+        ic(json.dumps(_unit_data_structure, indent=4))
 
-    def read_text(self, frame):
+    def read_text(self, frame: np.ndarray) -> None:
         if frame is None:
             return
 
@@ -132,10 +138,10 @@ class TextRecognition:
                 list_value = []
 
                 for bbox, text, _prob in results:
-                    _, value = self._extract_label_and_value(text)
+                    value = self.__extract_label_and_value(text)
                     list_value.append(value)
 
-                    self._process_filtered_values(_, [float(value) if value is not None else 0])
+                    self.__process_filtered_values([float(value) if value is not None else 0])
 
                     text_x = x + bbox[0][0]
                     text_y = y + bbox[0][1]
