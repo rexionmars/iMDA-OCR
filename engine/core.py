@@ -13,6 +13,6 @@ def main(camera_index):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Script para reconhecimento de texto com índice da câmera')
-    parser.add_argument('--camera-index', type=int, default=0, help='Índice da câmera (padrão: 0)')
+    parser.add_argument('--camera-index', type=str, default=0, help='Índice da câmera (padrão: 0)')
     args = parser.parse_args()
     main(args.camera_index)
